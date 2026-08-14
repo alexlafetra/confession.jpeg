@@ -27,7 +27,6 @@ const defaultImageAddress = "./images/clouds.jpeg";
 const imageSizeLimit = 350000; //300kB file size limit
 const maxDim = 800;
 const headerZone = 0.1;
-// const imageSizeLimit = 350000000; //300kB file size limit
 
 function buildTextPreviewDivs(){
   const children = [];
@@ -235,6 +234,40 @@ function handleScroll(event){
   setNewIndex(newIndex);
 }
 
+const touchControls = {
+  begun : false,
+  recent : {
+    x : 0,
+    y : 0
+  }
+}
+function startTouch(event){
+  touchControls.begun = true;
+  touchControls.recent = {
+    x : event.pageX,
+    y : event.pageY
+  };
+}
+function moveTouch(event){
+  if(touchControls.begun){
+    const deltaY = touchControls.recent.y - event.pageY;
+    const newIndex  = Math.min(Math.max(confession.entryIndex + (deltaY),0),confession.binaryData.length);
+    setNewIndex(newIndex);
+    touchControls.recent = {
+      x : event.pageX,
+      y : event.pageY
+    };
+  }
+}
+function endTouch(event){
+  if(touchControls.begun){
+    touchControls.begun = false;
+    const deltaY = touchControls.recent.y - event.pageY;
+    const newIndex  = Math.min(Math.max(confession.entryIndex + (deltaY),0),confession.binaryData.length);
+    setNewIndex(newIndex);
+  }
+}
+
 function setNewIndex(index){
   confession.entryIndex = Math.max(Math.min(Math.trunc(index),confession.binaryData.length),0);
   const ratio = confession.entryIndex<confession.jpegData.headerSize?
@@ -251,12 +284,13 @@ function setNewIndex(index){
 }
 
 function updateSliderVisual(val){
+  const charCount = 30;
   const element = document.getElementById('slider_display');
   const bounds = element.getBoundingClientRect();
-  const charWidth = bounds.width/50;
+  const charWidth = bounds.width/charCount;
   const amount =  (parseFloat(val))*bounds.width/charWidth;
   let str = "[";
-  for(let i = 1; i<49; i++){
+  for(let i = 1; i<(charCount-1); i++){
     if(i < amount){
       str += "+";
       if(i+1 >= amount){
@@ -359,9 +393,62 @@ function recompileImage(){
   }
 }
 
+//JPEG file layout from: https://yasoob.me/posts/understanding-and-writing-jpeg-decoder-in-python/
+const JPEGSectionMarker = {
+  start : 0xffd8,
+  applicationDefaultHeader : 0xffe0,
+  quantizationTable : 0xffdb,
+  startOfFrame : 0xffc0,
+  huffmanTable : 0xffc4,
+  startOfScan : 0xffda,
+  end : 0xffd9
+};
+
+function parseJpeg(bytes){
+  let data = {
+    start : null,
+    applicationDefaultHeader : null,
+    quantizationTable : null,
+    startOfFrame : null,
+    huffmanTable : null,
+    startOfScan : null,
+    end : null
+  };
+
+  const sectionTitles = [
+    'start',
+    'applicationDefaultHeader',
+    'quantizationTable',
+    'startOfFrame',
+    'huffmanTable',
+    'startOfScan',
+    'end',
+  ];
+
+  // console.log(bytes);
+
+  for(let i = 0; i<bytes.length; i+=2){
+    const uint16_t_marker = (bytes[i]<<8)|bytes[i+1];
+    // console.log(uint16_t_marker);
+    for(let title of sectionTitles){
+      if(uint16_t_marker == JPEGSectionMarker[title]){
+        data[title] = i;
+        const uint16_t_length = (bytes[i+2]<<8)|bytes[i+3];
+        console.log(uint16_t_length)
+        // i+=
+        // i += (uint16_t_length);
+      }
+    }
+  }
+
+  console.log(data);
+  return data;
+}
+
 function bufferToBinaryString(buffer){
   let binaryString = '';
   const bytes = new Uint8Array(buffer);
+  // parseJpeg(bytes);
   confession.jpegData = {...parseJpegHeader(bytes)};
   const len = bytes.byteLength;
   for(let i = 0; i<len; i++){

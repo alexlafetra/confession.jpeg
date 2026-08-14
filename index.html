@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" >
 
   <script language="javascript" type="text/javascript" src="jpegHeader.js"></script>
-  <script language="javascript" type="text/javascript" src="jpg_contradictions.js"></script>
+  <script language="javascript" type="text/javascript" src="confession.js"></script>
   <link rel="stylesheet" href="main.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,21 +21,24 @@
         <!-- <img id = "confession_booth_image" src = './images/confessional.png' style = "height:50px;width:auto;"> -->
       </div>
       <div id = "tools">
-        <div class = "toolbar_item" onclick = "openFileSelector()">
-          new
-          <input type="file" id="file_selector" accept="image/*" onchange = 'handleFileInput(event)'/>
+        <div style = "display:flex;flex-direction: row;">
+          <div class = "toolbar_item" onclick = "openFileSelector()">
+            new
+            <input type="file" id="file_selector" accept="image/*" onchange = 'handleFileInput(event)'/>
+          </div>
+          <div class = "toolbar_item" onclick = 'saveImageFile()'>save.jpeg</div>
+          <div class = "toolbar_item" onclick = 'saveTextFile()'>save.txt</div>
+          <div class = "toolbar_item" onclick = 'toggleAbout()' style = "background-color:transparent;color:blue;text-decoration: underline;">how to confess</div>
         </div>
-        <div class = "toolbar_item" onclick = 'saveImageFile()'>save.jpeg</div>
-        <div class = "toolbar_item" onclick = 'saveTextFile()'>save.txt</div>
-        <div class = "toolbar_item" onclick = 'toggleAbout()' style = "background-color:transparent;color:blue;text-decoration: underline;">how to confess</div>
+      <div id = "compression_slider_container">
+        <input class = "slider_element" type="range" id="compression_amount_slider" oninput = 'setCompressionQuality(1.0 - parseFloat(event.target.value));updateSliderVisual(parseFloat(event.target.value));' min = "0.0" max = "1.0" step = "0.01" value = "0.5">
+        <div id = "slider_display"></div>
+        <span class = "slider_label">compression amount</span>
+      </div>
       </div>
     </div>
 
-    <div id = "compression_slider_container">
-      <input class = "slider_element" type="range" id="compression_amount_slider" onchange = 'setCompressionQuality(1.0 - parseFloat(event.target.value));updateSliderVisual(parseFloat(event.target.value));' min = "0.0" max = "1.0" step = "0.01" value = "0.5">
-      <div id = "slider_display"></div>
-      <span class = "slider_label">compression amount</span>
-    </div>
+
 
     <div id = "byte_display">byte 0</div>
 
@@ -49,21 +52,14 @@
 
     <!-- input textArea element -->
     <div id = "text_input_holder">
-      <div id = "text_input_description">confession:</div>
+      <div id = "text_input_description">confess:</div>
       <textarea id = "text_input_area" oninput = 'recompileImage();insertText(confession.entryIndex);'></textarea>
     </div>
-
-    <!-- scrollbar -->
-    <!-- <div id = "byte_scrollbar_container" ondrag = "handleDrag(event)" ontouchmove = "handleDrag(event)" onmousemove = "handleDrag(event)"  onwheel = "handleScroll(event)" onmouseleave = "sliderUnclickHandler(event)" onmouseup="sliderUnclickHandler()" onmousedown="sliderClickHandler(event)">
-      <div id = "byte_scrollbar_pre"></div>
-    </div> -->
-    <!-- <div id = "jpeg_header_tag" class = "jpeg_scrollbar_tag">header</div> -->
-    <!-- <div id = "jpeg_header_highlight" class = "file_section_highlight"></div> -->
-    <!-- <div id = "jpeg_body_tag" class = "jpeg_scrollbar_tag">body</div> -->
-    <!-- <div id = "jpeg_body_highlight" class = "file_section_highlight"></div> -->
-
     <!-- output text container -->
-    <div id = "binary_data_container" ondrag =  "handleDrag(event)" onpointermove = "handleDrag(event)"  onwheel = "handleScroll(event)"></div>></div>
+    <div id = "binary_data_container" onwheel = "handleScroll(event)" ontouchstart = "startTouch(event)" ontouchend = "endTouch(event)" ontouchmove = "moveTouch(event)">
+
+    </div>
+  </div>
   </div>
 </body>
 </html>
