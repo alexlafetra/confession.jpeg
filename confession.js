@@ -28,6 +28,55 @@ const imageSizeLimit = 350000; //300kB file size limit
 const maxDim = 800;
 const headerZone = 0.1;
 
+// ok so header section needs to be one parent div, with the other sections as children
+
+function buildTextPreviewDivs_header_sensitive_prototype(){
+  const children = [];
+  //build header section
+  const headerContainer = document.createElement('div');
+  headerContainer.id = "jpeg_header_container";
+  const headerSections = [
+    'start',
+    'applicationDefaultHeader',
+    'quantizationTable',
+    'startOfFrame',
+    'startOfScan'
+  ];
+  for(let i = 0; i<confession.jpegData.huffmanTables.length;i++){
+    headerSections.splice(4+i,0,`huffmanTable${i}`);
+  }
+  for(let section of headerSections){
+    let text = "";
+    text = confession.binaryData.slice(confession.jpegData.sectionList[section].index,confession.jpegData.sectionList[section].length+confession.jpegData.sectionList[section].index);
+    let newElement = document.createElement('span');
+    newElement.className = `binary_data_chunk ${section}_data`;
+    newElement.innerText = text;
+    headerContainer.appendChild(newElement);
+  }
+  children.push(headerContainer);
+
+  //image data section
+  for(let i = confession.jpegData.imageData.index; i<confession.jpegData.imageData.index+confession.jpegData.imageData.length; i+=confession.maxChunkSize){
+    let text = "";
+    text = confession.binaryData.slice(i,i+confession.maxChunkSize);
+    let newElement = document.createElement('div');
+    newElement.className = `binary_data_chunk`;
+    newElement.innerText = text;
+    children.push(newElement);
+  }
+
+  for(let section in confession.jpegData.sectionList){
+    let text = "";
+    text = confession.binaryData.slice(confession.jpegData.sectionList[section].index,confession.jpegData.sectionList[section].length+confession.jpegData.sectionList[section].index);
+    let newElement = document.createElement('div');
+    newElement.className = `binary_data_chunk`;
+    newElement.innerText = text;
+    children.push(newElement);
+  }
+  const container = document.getElementById('binary_data_container');
+  container.replaceChildren(...children);
+}
+
 function buildTextPreviewDivs(){
   const children = [];
   for(let i = 0; i<confession.binaryData.length; i+=confession.maxChunkSize){
@@ -269,6 +318,7 @@ function endTouch(event){
 }
 
 function setNewIndex(index){
+  const oldIndex = confession.entryIndex;
   confession.entryIndex = Math.max(Math.min(Math.trunc(index),confession.binaryData.length),0);
   const ratio = confession.entryIndex<confession.jpegData.headerSize?
     (confession.entryIndex/confession.jpegData.headerSize * headerZone):
@@ -289,6 +339,7 @@ function updateSliderVisual(val){
   const bounds = element.getBoundingClientRect();
   const charWidth = bounds.width/charCount;
   const amount =  (parseFloat(val))*bounds.width/charWidth;
+  document.body.style.setProperty("--compression-slider-color",`hsl(${90*val - 90},100%,70%)`);
   let str = "[";
   for(let i = 1; i<(charCount-1); i++){
     if(i < amount){
@@ -404,15 +455,50 @@ const JPEGSectionMarker = {
   end : 0xffd9
 };
 
+//https://stackoverflow.com/questions/5320439/how-do-i-swap-endian-ness-byte-order-of-a-variable-in-javascript
+function swap16(val) {
+    return ((val & 0xFF) << 8)
+           | ((val >> 8) & 0xFF);
+}
+
+function swap32(val) {
+    return ((val & 0xFF) << 24)
+           | ((val & 0xFF00) << 8)
+           | ((val >> 8) & 0xFF00)
+           | ((val >> 24) & 0xFF);
+}
+
+function combine16(msb,lsb){
+  return (msb<<8)|lsb;
+}
+
 function parseJpeg(bytes){
   let data = {
-    start : null,
-    applicationDefaultHeader : null,
-    quantizationTable : null,
-    startOfFrame : null,
-    huffmanTable : null,
-    startOfScan : null,
-    end : null
+    start : {index:null,length:null},
+    applicationDefaultHeader : {index:null,length:null},
+    quantizationTable : {index:null,length:null},
+    startOfFrame : {index:null,length:null},
+    huffmanTables : [],
+    startOfScan : {index:null,length:null},
+    end : {index:null,length:null},
+    imageData : {index:null,length:null},
+    calcHeaderSize : function(){
+      this.headerSize = this.applicationDefaultHeader.index + this.applicationDefaultHeader.length;
+    },
+    //creates a flat list of each section, used for creating the html elements
+    buildSectionList : function(){
+      this.sectionList = {};
+      for(let section in this){
+        if(section == 'huffmanTables'){
+          for(let i = 0; i<this.huffmanTables.length; i++){
+            this.sectionList[`huffmanTable${i}`] = this.huffmanTables[i];
+          }
+        }
+        else{
+          this.sectionList[section] = this[section];
+        }
+      }
+    }
   };
 
   const sectionTitles = [
@@ -425,31 +511,62 @@ function parseJpeg(bytes){
     'end',
   ];
 
-  // console.log(bytes);
-
-  for(let i = 0; i<bytes.length; i+=2){
-    const uint16_t_marker = (bytes[i]<<8)|bytes[i+1];
-    // console.log(uint16_t_marker);
+  //if the first two bytes aren't the start of image marker, something's wrong
+  if(combine16(bytes[0],bytes[1]) != JPEGSectionMarker.start)
+    return;
+  else{
+    data.start = 0;
+  }
+  //move through byte array 2 at a time, since all the JPEG markers/data are uint16
+  for(let i = 2; i<bytes.length; i+=2){
+    const uint16_marker = combine16(bytes[i],bytes[i+1]);
     for(let title of sectionTitles){
-      if(uint16_t_marker == JPEGSectionMarker[title]){
-        data[title] = i;
-        const uint16_t_length = (bytes[i+2]<<8)|bytes[i+3];
-        console.log(uint16_t_length)
-        // i+=
-        // i += (uint16_t_length);
+      if(uint16_marker == JPEGSectionMarker[title]){
+        // length is big-endian
+        const uint16_length = swap16((bytes[i+3]<<8)|bytes[i+2]);
+
+        //if it's a huffman table, add a new table bc there are multiple of these
+        if(uint16_marker == JPEGSectionMarker.huffmanTable){
+          data.huffmanTables.push({
+            index : i,
+            length : uint16_length
+          });
+        }
+        //if it's the startOfScan marker, image data happens next so set the image data index
+        else if(uint16_marker == JPEGSectionMarker.startOfScan){
+          data.startOfScan = {
+            index : i,
+            length : uint16_length
+          };
+          data.imageData.index = i+uint16_length-1;
+        }
+        //if it's the end of image marker, you know the image data is ending, so set the image data length
+        else if(uint16_marker == JPEGSectionMarker.end){
+          data.imageData.length = i - data.imageData.index;
+          data.end = {
+            index : i,
+            length : 0
+          };
+        }
+        else{
+          data[title].index = i;
+          data[title].length = uint16_length;
+          i += (uint16_length);
+        }
       }
     }
   }
-
-  console.log(data);
+  data.calcHeaderSize();
+  data.buildSectionList();
   return data;
 }
 
 function bufferToBinaryString(buffer){
   let binaryString = '';
   const bytes = new Uint8Array(buffer);
-  // parseJpeg(bytes);
-  confession.jpegData = {...parseJpegHeader(bytes)};
+  // confession.jpegData = {...parseJpegHeader(bytes)};
+  confession.jpegData = parseJpeg(bytes);
+  // console.log(confession.jpegData);
   const len = bytes.byteLength;
   for(let i = 0; i<len; i++){
     binaryString += String.fromCharCode(bytes[i]);

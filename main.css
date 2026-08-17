@@ -8,6 +8,7 @@ html{
     --title-height:80px;
     --scrollbar-width:100px;
     --byte-display-width:300px;
+    --compression-slider-color:hsl(0,100%,70%);
 
     width:100%;
     user-select: none;;
@@ -50,8 +51,8 @@ body {
 }
 #slider_display{
     color:white;
-    /* background-color: blue; */
-    background-color:rgb(239, 205, 255);
+    /* background-color:rgb(239, 205, 255); */
+    background-color: var(--compression-slider-color);
     position:absolute;
     top:0;
     pointer-events: none;
@@ -199,9 +200,42 @@ body {
     right:10px;
     top:10px;
 }
+/* not sure if we'll use this */
 .header_data{
     color:white;
     background-color:rgb(239, 205, 255);
+}
+.start_data{
+    color:white;
+    background-color:rgb(239, 205, 255);
+}
+.applicationDefaultHeader_data{
+    color:white;
+    background-color:rgb(8, 63, 214);
+}
+.quantizationTable_data{
+    color:white;
+    background-color:rgb(150, 167, 21);
+}
+.imageData_data{
+    color:white;
+    background-color:rgb(252, 227, 0);
+}
+.startOfFrame_data{
+    color:white;
+    background-color:rgb(176, 6, 255);
+}
+.huffmanTable_data{
+    color:white;
+    background-color:rgb(11, 240, 248);
+}
+.startOfScan_data{
+    color:white;
+    background-color:rgb(213, 45, 15);
+}
+.end_data{
+    color:white;
+    background-color:rgb(3, 117, 107);
 }
 #binary_data_container{
     grid-area:textoutput;
